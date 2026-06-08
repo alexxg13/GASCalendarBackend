@@ -1,53 +1,31 @@
-# -------------------------------
-# Стадия 1: Сборка (build)
-# -------------------------------
-FROM eclipse-temurin:17-jdk-alpine AS builder
+# syntax=docker/dockerfile:1
 
-# Устанавливаем Maven (можно также использовать готовый образ maven, но тогда пришлось бы копировать артефакты)
-# Альтернатива: FROM maven:3.9.6-eclipse-temurin-17 AS builder – так проще,
-# но для демонстрации ручной установки оставим как есть.
-# Для надёжности используем официальный образ maven.
-# Я рекомендую использовать готовый maven образ, т.к. это проще и надёжнее.
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
+FROM maven:3.9-eclipse-temurin-24 AS build
 
-WORKDIR /app
+WORKDIR /workspace
 
-# Копируем только pom.xml и settings.xml (если есть), чтобы закэшировать зависимости
 COPY pom.xml .
-# Если есть файлы настроек maven, раскомментировать:
-# COPY settings.xml /root/.m2/settings.xml
 
-# Скачиваем зависимости (этот слой будет пересобираться только при изменении pom.xml)
-RUN mvn dependency:go-offline -B
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn dependency:go-offline --batch-mode
 
-# Копируем остальной код
 COPY src ./src
 
-# Собираем jar
-RUN mvn clean package -DskipTests -B
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn clean package --batch-mode
 
-# -------------------------------
-# Стадия 2: Финальный образ (runtime)
-# -------------------------------
-FROM eclipse-temurin:17-jre-alpine
 
-# Создаём непривилегированного пользователя
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+FROM eclipse-temurin:24-jre-alpine AS runtime
+
+RUN addgroup --system app \
+    && adduser --system --ingroup app app
 
 WORKDIR /app
 
-# Копируем собранный jar из стадии builder
-# Предполагается, что Maven собирает jar с именем *.jar в target/
-COPY --from=builder /app/target/*.jar app.jar
+COPY --from=build --chown=app:app /workspace/target/*.jar app.jar
 
-# Владелец файла – appuser
-RUN chown -R appuser:appgroup /app
+USER app
 
-# Переключаемся на непривилегированного пользователя
-USER appuser
-
-# Открываем порт (по умолчанию для Spring Boot – 8080, измените при необходимости)
 EXPOSE 8080
 
-# Точка входа
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]

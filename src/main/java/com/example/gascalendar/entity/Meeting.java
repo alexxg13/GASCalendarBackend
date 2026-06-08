@@ -4,7 +4,9 @@ import com.example.gascalendar.entity.enums.MeetingStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
@@ -21,6 +23,9 @@ import java.util.List;
 public class Meeting {
 
     @Id
+    @Column(length = 36)
+    @ColumnDefault("gen_random_uuid()::text")
+    @Generated(sql = "gen_random_uuid()::text")
     private String id;
 
     @NotBlank

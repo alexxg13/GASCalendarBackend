@@ -6,7 +6,9 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import io.swagger.v3.oas.annotations.media.Schema;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
@@ -24,6 +26,8 @@ public class User {
 
     @Id
     @Column(length = 36)
+    @ColumnDefault("gen_random_uuid()::text")
+    @Generated(sql = "gen_random_uuid()::text")
     @Schema(example = "uuid")
     private String id;
 
@@ -61,7 +65,4 @@ public class User {
 
     @OneToMany(mappedBy = "createdBy")
     private List<Meeting> meetingsCreated;
-
-    @OneToMany(mappedBy = "user")
-    private List<Session> sessions;
 }

@@ -1,0 +1,2054 @@
+openapi: 3.0.3
+info:
+  title: GAS API - Goals, Actions, Steps
+  description: |
+    Production-ready REST API for the GAS task management and scheduling application.
+
+    ## Features
+    - JWT-based authentication
+    - Kanban board task management
+    - Meeting scheduling and availability
+    - Admin panel for user and system management
+
+    ## Authentication
+    All endpoints except `/auth/login` and `/auth/register` require a valid JWT token.
+    Include the token in the Authorization header: `Bearer <token>`
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@gas-app.com
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://api.gas-app.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Tasks
+    description: Kanban board task management
+  - name: Meetings
+    description: Meeting scheduling and availability
+  - name: Calendar
+    description: Calendar-based task and meeting views
+  - name: Admin
+    description: Administrative operations (admin only)
+  - name: Users
+    description: User management
+
+paths:
+  # ==========================================
+  # AUTHENTICATION ENDPOINTS
+  # ==========================================
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user with email and password
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              admin:
+                summary: Admin user
+                value:
+                  email: admin@gas-app.com
+                  password: admin123
+                  rememberMe: true
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              examples:
+                success:
+                  value:
+                    success: true
+                    message: Login successful
+                    data:
+                      user:
+                        id: "1"
+                        name: John Doe
+                        email: admin@gas-app.com
+                        role: admin
+                        status: active
+                        lastActive: "2026-05-13T10:30:00Z"
+                        createdAt: "2025-01-01T00:00:00Z"
+                      token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      description: Register a new user account
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current session token
+      operationId: logout
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get a new access token using refresh token
+      operationId: refreshToken
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Retrieve authenticated user information
+      operationId: getCurrentUser
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User data retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # TASKS ENDPOINTS
+  # ==========================================
+  /tasks:
+    get:
+      tags:
+        - Tasks
+      summary: Get all tasks organized by columns
+      description: Retrieve all tasks grouped by Kanban columns (Goals, Actions, Steps, Completed)
+      operationId: getTasks
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Column'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Tasks
+      summary: Create a new task
+      description: Add a new task to a specific column
+      operationId: createTask
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+            examples:
+              goal:
+                summary: Create a goal
+                value:
+                  title: Increase sales by 20%
+                  description: Focus on enterprise clients
+                  priority: high
+                  assignee: John Doe
+                  columnId: goals
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}:
+    patch:
+      tags:
+        - Tasks
+      summary: Update a task
+      description: Update task properties
+      operationId: updateTask
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdateRequest'
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Tasks
+      summary: Delete a task
+      description: Permanently delete a task
+      operationId: deleteTask
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      responses:
+        '200':
+          description: Task deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}/move:
+    patch:
+      tags:
+        - Tasks
+      summary: Move task to different column
+      description: Move a task from one Kanban column to another
+      operationId: moveTask
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - toColumnId
+              properties:
+                toColumnId:
+                  type: string
+                  enum: [goals, actions, steps, completed]
+                  description: Target column ID
+                  example: completed
+      responses:
+        '200':
+          description: Task moved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{taskId}/toggle-complete:
+    patch:
+      tags:
+        - Tasks
+      summary: Toggle task completion status
+      description: Mark task as completed or incomplete
+      operationId: toggleTaskComplete
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Task ID
+      responses:
+        '200':
+          description: Task status toggled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # MEETINGS ENDPOINTS
+  # ==========================================
+  /meetings:
+    get:
+      tags:
+        - Meetings
+      summary: Get all meetings
+      description: Retrieve all scheduled meetings
+      operationId: getMeetings
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled]
+          description: Filter by meeting status
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter meetings from this date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter meetings until this date
+      responses:
+        '200':
+          description: Meetings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Meeting'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Meetings
+      summary: Create a new meeting
+      description: Schedule a new meeting with participants
+      operationId: createMeeting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetingCreateRequest'
+            examples:
+              teamMeeting:
+                summary: Team standup
+                value:
+                  title: Daily Standup
+                  date: "2026-05-14"
+                  time: "09:00"
+                  participants:
+                    - "1"
+                    - "2"
+                    - "3"
+      responses:
+        '201':
+          description: Meeting created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Meeting'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /meetings/{meetingId}:
+    delete:
+      tags:
+        - Meetings
+      summary: Cancel a meeting
+      description: Cancel/delete a scheduled meeting
+      operationId: deleteMeeting
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Meeting ID
+      responses:
+        '200':
+          description: Meeting cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /meetings/{meetingId}/confirm:
+    post:
+      tags:
+        - Meetings
+      summary: Confirm or decline meeting
+      description: Participant confirms, declines, or marks as pending
+      operationId: confirmMeeting
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: meetingId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Meeting ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, declined, pending]
+                  description: Confirmation status
+                  example: accepted
+      responses:
+        '200':
+          description: Meeting confirmation updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Meeting'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /meetings/availability:
+    get:
+      tags:
+        - Meetings
+      summary: Get user availability
+      description: Retrieve availability calendar for all users
+      operationId: getUserAvailability
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Start date for availability check
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: End date for availability check
+      responses:
+        '200':
+          description: Availability retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserAvailability'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # CALENDAR ENDPOINTS
+  # ==========================================
+  /calendar/items:
+    get:
+      tags:
+        - Calendar
+      summary: Get calendar items for date range
+      description: Retrieve all tasks and meetings for calendar view
+      operationId: getCalendarItems
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Start date (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: End date (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Calendar items retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      tasks:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Task'
+                      meetings:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Meeting'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # ADMIN ENDPOINTS
+  # ==========================================
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users
+      description: Retrieve all users (admin only)
+      operationId: getUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, operator, viewer]
+          description: Filter by role
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+          description: Filter by status
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Items per page
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Admin
+      summary: Create a new user
+      description: Create a new user account (admin only)
+      operationId: createUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/users/{userId}:
+    patch:
+      tags:
+        - Admin
+      summary: Update user
+      description: Update user details (admin only)
+      operationId: updateUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Admin
+      summary: Delete user
+      description: Delete a user account (admin only)
+      operationId: deleteUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/metrics/proxy:
+    get:
+      tags:
+        - Admin
+      summary: Get proxy metrics
+      description: Retrieve proxy server metrics (admin only)
+      operationId: getProxyMetrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ProxyMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/metrics/cache:
+    get:
+      tags:
+        - Admin
+      summary: Get cache metrics
+      description: Retrieve cache performance metrics (admin only)
+      operationId: getCacheMetrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Cache metrics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CacheMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/metrics/system:
+    get:
+      tags:
+        - Admin
+      summary: Get system metrics
+      description: Retrieve system resource metrics (admin only)
+      operationId: getSystemMetrics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: System metrics retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/SystemMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/ip-rules:
+    get:
+      tags:
+        - Admin
+      summary: Get IP access rules
+      description: Retrieve all IP access rules (admin only)
+      operationId: getIPRules
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [allow, deny, grey]
+          description: Filter by rule type
+      responses:
+        '200':
+          description: IP rules retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IPRule'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Admin
+      summary: Add IP rule
+      description: Create new IP access rule (admin only)
+      operationId: createIPRule
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IPRuleCreateRequest'
+      responses:
+        '201':
+          description: IP rule created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/IPRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/ip-rules/{ruleId}:
+    delete:
+      tags:
+        - Admin
+      summary: Delete IP rule
+      description: Remove an IP access rule (admin only)
+      operationId: deleteIPRule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: IP rule ID
+      responses:
+        '200':
+          description: IP rule deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/logs:
+    get:
+      tags:
+        - Admin
+      summary: Get system logs
+      description: Retrieve system logs with filtering (admin only)
+      operationId: getLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [info, warning, error]
+          description: Filter by log level
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [access, error, security]
+          description: Filter by log type
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+          description: Number of logs to retrieve
+      responses:
+        '200':
+          description: Logs retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LogEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/upstream-servers:
+    get:
+      tags:
+        - Admin
+      summary: Get upstream server status
+      description: Retrieve status of all upstream servers (admin only)
+      operationId: getUpstreamServers
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Upstream servers retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UpstreamServer'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/rate-limit/config:
+    get:
+      tags:
+        - Admin
+      summary: Get rate limit configuration
+      description: Retrieve current rate limiting settings (admin only)
+      operationId: getRateLimitConfig
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Configuration retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/RateLimitConfig'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Admin
+      summary: Update rate limit configuration
+      description: Modify rate limiting settings (admin only)
+      operationId: updateRateLimitConfig
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RateLimitConfig'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/RateLimitConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/rate-limit/violators:
+    get:
+      tags:
+        - Admin
+      summary: Get rate limit violators
+      description: Retrieve list of IPs violating rate limits (admin only)
+      operationId: getRateViolators
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Violators retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RateViolator'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# ==========================================
+# COMPONENTS
+# ==========================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT-based authentication. Include the token in the Authorization header:
+        `Authorization: Bearer <token>`
+
+  schemas:
+    # ==========================================
+    # AUTH SCHEMAS
+    # ==========================================
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: admin@gas-app.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          description: User password
+          example: password123
+        rememberMe:
+          type: boolean
+          default: false
+          description: Keep user logged in for extended period
+          example: true
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: User full name
+          example: John Doe
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: john.doe@gas-app.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          description: User password
+          example: securePassword123
+        role:
+          type: string
+          enum: [admin, operator, viewer]
+          default: viewer
+          description: User role
+          example: viewer
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Login successful
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            token:
+              type: string
+              description: JWT access token
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique user identifier
+          example: "1"
+        name:
+          type: string
+          description: User full name
+          example: John Doe
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: john.doe@gas-app.com
+        role:
+          type: string
+          enum: [admin, operator, viewer]
+          description: User role
+          example: admin
+        status:
+          type: string
+          enum: [active, inactive]
+          description: User account status
+          example: active
+        lastActive:
+          type: string
+          format: date-time
+          description: Last activity timestamp
+          example: "2026-05-13T10:30:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+          example: "2025-01-01T00:00:00Z"
+
+    UserCreateRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+        - role
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jane Smith
+        email:
+          type: string
+          format: email
+          example: jane.smith@gas-app.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: password123
+        role:
+          type: string
+          enum: [admin, operator, viewer]
+          example: operator
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane.doe@gas-app.com
+        password:
+          type: string
+          format: password
+          minLength: 6
+          description: Optional - only if changing password
+          example: newPassword123
+        role:
+          type: string
+          enum: [admin, operator, viewer]
+          example: admin
+        status:
+          type: string
+          enum: [active, inactive]
+          example: active
+
+    # ==========================================
+    # TASK SCHEMAS
+    # ==========================================
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique task identifier
+          example: "1"
+        title:
+          type: string
+          description: Task title
+          example: Increase sales by 20%
+        description:
+          type: string
+          description: Task description
+          example: Focus on enterprise clients
+        priority:
+          type: string
+          enum: [low, medium, high]
+          description: Task priority level
+          example: high
+        assignee:
+          type: string
+          description: Assigned user name
+          example: John Doe
+        columnId:
+          type: string
+          enum: [goals, actions, steps, completed]
+          description: Current Kanban column
+          example: goals
+        date:
+          type: string
+          format: date
+          description: Task due date
+          example: "2026-05-15"
+        time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          description: Task time (HH:mm format)
+          example: "10:00"
+        type:
+          type: string
+          enum: [goal, action, step]
+          description: Task type for calendar
+          example: goal
+        completed:
+          type: boolean
+          description: Completion status
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:00:00Z"
+
+    Column:
+      type: object
+      properties:
+        id:
+          type: string
+          enum: [goals, actions, steps, completed]
+          description: Column identifier
+          example: goals
+        title:
+          type: string
+          description: Column display title
+          example: Goals
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+          description: Tasks in this column
+        order:
+          type: integer
+          description: Display order
+          example: 0
+
+    TaskCreateRequest:
+      type: object
+      required:
+        - title
+        - priority
+        - assignee
+        - columnId
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Complete project documentation
+        description:
+          type: string
+          maxLength: 1000
+          example: Write comprehensive API documentation
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: medium
+        assignee:
+          type: string
+          example: John Doe
+        columnId:
+          type: string
+          enum: [goals, actions, steps, completed]
+          example: actions
+        date:
+          type: string
+          format: date
+          example: "2026-05-15"
+        time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "14:00"
+        type:
+          type: string
+          enum: [goal, action, step]
+          example: action
+
+    TaskUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        priority:
+          type: string
+          enum: [low, medium, high]
+        assignee:
+          type: string
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+        completed:
+          type: boolean
+
+    # ==========================================
+    # MEETING SCHEMAS
+    # ==========================================
+    Meeting:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique meeting identifier
+          example: "m1"
+        title:
+          type: string
+          description: Meeting title
+          example: Team Standup
+        date:
+          type: string
+          format: date
+          description: Meeting date
+          example: "2026-05-14"
+        time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          description: Meeting time (HH:mm)
+          example: "10:00"
+        participants:
+          type: array
+          items:
+            type: string
+          description: List of participant IDs
+          example: ["1", "2", "3"]
+        confirmations:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [pending, accepted, declined]
+          description: Confirmation status per participant
+          example:
+            "1": accepted
+            "2": pending
+            "3": accepted
+        status:
+          type: string
+          enum: [pending, confirmed, cancelled]
+          description: Overall meeting status
+          example: pending
+        createdBy:
+          type: string
+          description: User ID who created the meeting
+          example: "1"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:00:00Z"
+
+    MeetingCreateRequest:
+      type: object
+      required:
+        - title
+        - date
+        - time
+        - participants
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Product Review Meeting
+        date:
+          type: string
+          format: date
+          example: "2026-05-15"
+        time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "14:00"
+        participants:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          description: Array of participant user IDs
+          example: ["1", "2", "3"]
+
+    UserAvailability:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "1"
+        userName:
+          type: string
+          example: John Doe
+        avatar:
+          type: string
+          description: URL to user avatar
+          example: https://ui-avatars.com/api/?name=John+Doe
+        availability:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Map of date to available time slots
+          example:
+            "2026-05-14": ["09:00", "10:00", "14:00"]
+            "2026-05-15": ["11:00", "15:00"]
+
+    # ==========================================
+    # ADMIN SCHEMAS
+    # ==========================================
+    ProxyMetrics:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+          description: Total number of requests
+          example: 18900
+        requestsPerSecond:
+          type: number
+          format: float
+          description: Current RPS
+          example: 145.3
+        avgLatency:
+          type: number
+          format: float
+          description: Average latency in ms
+          example: 58.2
+        p99Latency:
+          type: number
+          format: float
+          description: 99th percentile latency in ms
+          example: 350.0
+        errorRate:
+          type: number
+          format: float
+          description: Error rate percentage
+          example: 0.4
+        activeConnections:
+          type: integer
+          description: Number of active connections
+          example: 342
+
+    CacheMetrics:
+      type: object
+      properties:
+        hits:
+          type: integer
+          description: Cache hit count
+          example: 8450
+        misses:
+          type: integer
+          description: Cache miss count
+          example: 2780
+        size:
+          type: string
+          description: Current cache size
+          example: "1.2GB"
+        invalidations:
+          type: integer
+          description: Number of cache invalidations
+          example: 340
+
+    SystemMetrics:
+      type: object
+      properties:
+        cpu:
+          type: number
+          format: float
+          description: CPU usage percentage
+          example: 42.5
+        memory:
+          type: number
+          format: float
+          description: Memory usage percentage
+          example: 68.3
+        goroutines:
+          type: integer
+          description: Number of active goroutines
+          example: 1248
+        gcPauses:
+          type: number
+          format: float
+          description: GC pause time in ms
+          example: 2.4
+
+    IPRule:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "ipr1"
+        ip:
+          type: string
+          description: IP address or CIDR range
+          example: "192.168.1.0/24"
+        type:
+          type: string
+          enum: [allow, deny, grey]
+          example: allow
+        reason:
+          type: string
+          description: Reason for the rule
+          example: Corporate network
+        addedDate:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:00:00Z"
+        requests:
+          type: integer
+          description: Number of requests from this IP
+          example: 1234
+
+    IPRuleCreateRequest:
+      type: object
+      required:
+        - ip
+        - type
+        - reason
+      properties:
+        ip:
+          type: string
+          pattern: '^(\d{1,3}\.){3}\d{1,3}(/\d{1,2})?$'
+          description: IP address or CIDR range
+          example: "10.0.0.0/24"
+        type:
+          type: string
+          enum: [allow, deny, grey]
+          example: allow
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Development team subnet
+
+    LogEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:30:15Z"
+        level:
+          type: string
+          enum: [info, warning, error]
+          example: info
+        type:
+          type: string
+          enum: [access, error, security]
+          example: access
+        ip:
+          type: string
+          example: "192.168.1.100"
+        message:
+          type: string
+          example: User logged in successfully
+        method:
+          type: string
+          example: POST
+        path:
+          type: string
+          example: /api/auth/login
+        status:
+          type: integer
+          example: 200
+
+    UpstreamServer:
+      type: object
+      properties:
+        name:
+          type: string
+          example: server-1
+        url:
+          type: string
+          format: uri
+          example: https://backend-1.gas-app.com
+        status:
+          type: string
+          enum: [healthy, degraded, down]
+          example: healthy
+        latency:
+          type: number
+          format: float
+          description: Average latency in ms
+          example: 45.2
+        errorRate:
+          type: number
+          format: float
+          description: Error rate percentage
+          example: 0.1
+        timeouts:
+          type: integer
+          description: Number of timeouts
+          example: 0
+        lastCheck:
+          type: string
+          format: date-time
+          example: "2026-05-13T10:29:00Z"
+
+    RateLimitConfig:
+      type: object
+      properties:
+        rps:
+          type: integer
+          description: Requests per second limit
+          example: 100
+        rpm:
+          type: integer
+          description: Requests per minute limit
+          example: 1000
+        maxConnections:
+          type: integer
+          description: Maximum concurrent connections
+          example: 500
+        banDuration:
+          type: integer
+          description: Ban duration in seconds for violators
+          example: 3600
+
+    RateViolator:
+      type: object
+      properties:
+        ip:
+          type: string
+          example: "203.0.113.42"
+        requests:
+          type: integer
+          description: Number of requests made
+          example: 5000
+        limit:
+          type: integer
+          description: Allowed request limit
+          example: 1000
+        violations:
+          type: integer
+          description: Number of violations
+          example: 12
+
+    # ==========================================
+    # COMMON SCHEMAS
+    # ==========================================
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          description: Human-readable error message
+          example: Validation failed
+        code:
+          type: string
+          description: Error code for programmatic handling
+          example: VALIDATION_ERROR
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Field-specific validation errors
+          example:
+            email:
+              - Email is required
+              - Email must be valid
+            password:
+              - Password must be at least 6 characters
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        pageSize:
+          type: integer
+          description: Items per page
+          example: 20
+        total:
+          type: integer
+          description: Total number of items
+          example: 150
+        totalPages:
+          type: integer
+          description: Total number of pages
+          example: 8
+
+  # ==========================================
+  # REUSABLE RESPONSES
+  # ==========================================
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Validation failed
+            code: VALIDATION_ERROR
+            errors:
+              title:
+                - Title is required
+
+    Unauthorized:
+      description: Unauthorized - invalid or missing token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Authentication required
+            code: UNAUTHORIZED
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Insufficient permissions
+            code: FORBIDDEN
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: Resource not found
+            code: NOT_FOUND
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: An unexpected error occurred
+            code: INTERNAL_SERVER_ERROR
+
+security:
+  - BearerAuth: []
