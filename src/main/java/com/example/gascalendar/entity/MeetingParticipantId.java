@@ -8,6 +8,7 @@ import java.io.Serializable;
 @Embeddable
 @Getter
 @Setter
+@EqualsAndHashCode
 @NoArgsConstructor
 @AllArgsConstructor
 public class MeetingParticipantId implements Serializable {

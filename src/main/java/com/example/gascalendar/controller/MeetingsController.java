@@ -2,7 +2,9 @@ package com.example.gascalendar.controller;
 
 import com.example.gascalendar.dto.request.MeetingConfirmRequest;
 import com.example.gascalendar.dto.request.MeetingCreateRequest;
+import com.example.gascalendar.dto.request.AvailabilityFilterRequest;
 import com.example.gascalendar.dto.response.ApiResponse;
+import com.example.gascalendar.dto.response.CommonAvailabilityResponse;
 import com.example.gascalendar.dto.response.MeetingResponse;
 import com.example.gascalendar.dto.response.SuccessResponse;
 import com.example.gascalendar.dto.response.UserAvailabilityResponse;
@@ -57,6 +59,13 @@ public interface MeetingsController {
     ResponseEntity<ApiResponse<List<UserAvailabilityResponse>>> getUserAvailability(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            HttpSession session
+    );
+
+    @Operation(summary = "Find common availability for selected users")
+    @PostMapping("/availability/common")
+    ResponseEntity<ApiResponse<CommonAvailabilityResponse>> getCommonAvailability(
+            @Valid @RequestBody AvailabilityFilterRequest request,
             HttpSession session
     );
 }

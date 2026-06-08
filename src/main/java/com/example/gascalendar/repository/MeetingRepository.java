@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface MeetingRepository extends JpaRepository<Meeting, String> {
     List<Meeting> findByCreatedBy(User createdBy);
@@ -22,4 +23,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, String> {
     List<Meeting> findByStatusAndMeetingDateBetween(MeetingStatus status, LocalDate startDate, LocalDate endDate);
 
     List<Meeting> findByMeetingDateBetweenOrderByMeetingDateAscMeetingTimeAsc(LocalDate startDate, LocalDate endDate);
+
+    Optional<Meeting> findByIdAndCreatedBy_Id(String meetingId, String userId);
 }

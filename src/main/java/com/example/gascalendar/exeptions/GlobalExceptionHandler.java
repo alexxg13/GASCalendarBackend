@@ -50,6 +50,34 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(MeetingParticipantNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMeetingParticipantNotFound(
+            MeetingParticipantNotFoundException exception
+    ) {
+        return errorResponse(
+                HttpStatus.NOT_FOUND,
+                "Meeting participant does not exist",
+                List.of(exception.getMessage())
+        );
+    }
+
+    @ExceptionHandler(MeetingNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleMeetingNotFound(MeetingNotFoundException exception) {
+        return errorResponse(
+                HttpStatus.NOT_FOUND,
+                "Meeting does not exist",
+                List.of(exception.getMessage())
+        );
+    }
+
+    @ExceptionHandler(InvalidDateRangeException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidDateRange(InvalidDateRangeException exception) {
+        return badRequest(
+                "Date range is invalid",
+                List.of(exception.getMessage())
+        );
+    }
+
     private ResponseEntity<ErrorResponse> badRequest(String message, List<String> details) {
         return errorResponse(HttpStatus.BAD_REQUEST, message, details);
     }
