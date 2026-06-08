@@ -25,7 +25,7 @@ public class AuthControllerIml implements AuthController {
 
     @Override
     public ResponseEntity<LoginResponse> login(LoginRequest request, HttpSession session) {
-        boolean exists = userService.existsUserByEmail(request.getEmail());
+        boolean exists = userService.login(request.getEmail(), request.getPassword());
         LoginResponse loginResponse = new LoginResponse();
         if(exists){
             loginResponse.setSuccess(true);

@@ -55,6 +55,7 @@ public class Task {
     @Enumerated(EnumType.STRING)
     private TaskType taskType;
 
+    @Builder.Default
     private Boolean completed = false;
 
     @ManyToOne

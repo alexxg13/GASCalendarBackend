@@ -22,8 +22,7 @@ public interface MeetingsService {
 
     List<UserAvailabilityResponse> getUserAvailability(String userId, LocalDate startDate, LocalDate endDate);
 
-    CommonAvailabilityResponse getCommonAvailability(
-            String userId,
-            AvailabilityFilterRequest request
-    );
+    CommonAvailabilityResponse getCommonAvailability(String userId, AvailabilityFilterRequest request);
+
+    List<MeetingResponse> getMeetingsByUserID(String userId);
 }

@@ -20,4 +20,6 @@ public interface TasksService {
     void moveTask(String userId, String taskId, TaskMoveRequest request);
 
     TaskResponse toggleTaskComplete(String userId, String taskId);
+
+    List<TaskResponse> getTasks(String userId);
 }

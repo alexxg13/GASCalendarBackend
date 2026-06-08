@@ -120,7 +120,7 @@ public class MeetingsServiceImpl implements MeetingsService {
             meeting.getParticipants().add(participant);
         }
 
-        meetingParticipantRepository.saveAll(meeting.getParticipants());
+        meetingRepository.flush();
         return meetingsMapper.toMeetingResponse(meeting);
     }
 
@@ -203,6 +203,12 @@ public class MeetingsServiceImpl implements MeetingsService {
         }
 
         return new CommonAvailabilityResponse(participantIds, commonAvailability);
+    }
+
+    @Override
+    public List<MeetingResponse> getMeetingsByUserID(String userId) {
+        List<MeetingParticipant> meetingList = meetingParticipantRepository.findById_UserId(userId);
+        return meetingList.stream().map(MeetingParticipant::getMeeting).map(meetingsMapper::toMeetingResponse).toList();
     }
 
     private User getUser(String userId) {

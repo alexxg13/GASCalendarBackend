@@ -55,6 +55,7 @@ public class TasksServiceImpl implements TasksService {
         }
 
         task.setUser(user);
+        task.setCompleted(false);
         task = taskRepository.save(task);
         return tasksMapper.toResponse(task);
     }
@@ -84,18 +85,18 @@ public class TasksServiceImpl implements TasksService {
     @Transactional
     public TaskResponse toggleTaskComplete(String userId, String taskId) {
         Task task = getUserTask(userId, taskId);
-        TaskColumn current = task.getColumn();
-        TaskColumn[] columns = TaskColumn.values();
-
-        int nextIndex = current.ordinal() + 1;
-
-        if (nextIndex < columns.length) {
-            task.setColumn(columns[nextIndex]);
-        }
-
-        task.setCompleted(task.getColumn() == TaskColumn.COMPLETED);
+        boolean completed = !Boolean.TRUE.equals(task.getCompleted());
+        task.setCompleted(completed);
+        task.setColumn(completed ? TaskColumn.COMPLETED : TaskColumn.ACTIONS);
 
         return tasksMapper.toResponse(task);
+    }
+
+    @Override
+    public List<TaskResponse> getTasks(String userId) {
+        List<Task> tasks = taskRepository.findByUser_IdOrderByCreatedAtAsc(userId);
+        return tasks.stream().map(task -> tasksMapper.toResponse(task)).toList();
+
     }
 
     private Task getUserTask(String userId, String taskId) {
